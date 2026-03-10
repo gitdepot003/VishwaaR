@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Youth Buzz - Vikram Lander AR</title>
+
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v7.0.0/dist/aframe-extras.min.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+
+        /* The Watermark - Subtle & Non-Intrusive */
+        #watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            z-index: 500; /* Behind buttons, in front of camera */
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: 900;
+            font-size: 8vw; /* Scales with screen width */
+            color: rgba(255, 255, 255, 0.04); /* Only 8% opacity */
+            white-space: nowrap;
+            pointer-events: none; /* User can click through it */
+            user-select: none;
+            text-transform: uppercase;
+            letter-spacing: 15px;
+        }
+
+        /* Top Left - Logo */
+        #ui-logo { position: fixed; top: 20px; left: 20px; z-index: 9999; }
+        #ui-logo img {
+            width: 180px; /* Resize as needed */
+            height: auto;
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.6));
+        }
+
+        /* Top Right - Status & Refresh */
+        #ui-top-right {
+            position: fixed; top: 20px; right: 20px; z-index: 9999;
+            display: flex; flex-direction: column; align-items: flex-end;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* Bottom Center - Ticket */
+        #ui-bottom {
+            position: fixed; bottom: 40px; left: 50%; 
+            transform: translateX(-50%); z-index: 9999;
+            width: 100%; text-align: center;
+        }
+
+        #status-box {
+            color: #FFFFFF; background: rgba(0, 5, 15, 0.85); 
+            padding: 12px; margin-bottom: 10px; border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 4px; font-size: 13px; text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+        }
+
+        .btn-refresh {
+            background: #FFFFFF; color: #000; border: 1px solid #ccc;
+            padding: 10px 18px; font-weight: bold; border-radius: 8px;
+            cursor: pointer; text-transform: uppercase; font-size: 11px;
+        }
+
+        .btn-ticket {
+            background: #000; color: #FFFFFF; border: 2px solid #FFFFFF;
+            padding: 18px 35px; font-weight: 800; border-radius: 50px;
+            cursor: pointer; box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); 
+            text-transform: uppercase; font-size: 18px; letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-ticket:active { transform: scale(0.95); background: #fff; color: #000; }
+
+        /* Nuclear VR Button Kill */
+        .a-enter-vr, .a-enter-ar { display: none !important; }
+    </style>
+
+    <script>
+        // S24 ULTRA CAMERA RESOLUTION FIX
+        const constraints = { video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } };
+        navigator.mediaDevices.getUserMedia(constraints).catch(err => console.error(err));
+
+        // MATERIAL & ANTI-VANISH SETUP
+        AFRAME.registerComponent('vikram-setup', {
+            init: function () {
+                this.el.addEventListener('model-loaded', () => {
+                    const mesh = this.el.getObject3D('mesh');
+                    mesh.traverse(node => {
+                        if (node.isMesh) {
+                            node.frustumCulled = false;
+                            node.material.emissive = new THREE.Color('#222200');
+                            node.material.emissiveIntensity = 0.6;
+                            node.material.metalness = 0.8;
+                            node.material.roughness = 0.2;
+                        }
+                    });
+                });
+            }
+        });
+
+        AFRAME.registerComponent('pause-at-end', {
+            tick: function () {
+                const mixerComp = this.el.components['animation-mixer'];
+                if (mixerComp && mixerComp.mixer) {
+                    const actions = mixerComp.mixer._actions;
+                    if (actions && actions.length > 0) {
+                        actions.forEach(action => {
+                            const duration = action._clip.duration;
+                            const safetyTime = duration - 0.05; 
+                            if (action.time >= safetyTime) {
+                                action.time = safetyTime; 
+                                action.paused = true;
+                            }
+                        });
+                    }
+                }
+            }
+        });
+
+        AFRAME.registerComponent('mission-sequencer', {
+            init: function () {
+                this.lander = document.querySelector('#vikram');
+                this.status = document.querySelector('#status-box');
+                this.jetSound = document.querySelector('#jetSound');
+
+                this.el.addEventListener('targetFound', () => {
+                    this.status.innerText = "COORDINATES: 69.373 S, 32.319 E";
+                    this.runSequence();
+                });
+            },
+            runSequence: function () {
+                this.lander.setAttribute('position', '0 0 1');
+                this.lander.setAttribute('visible', 'true');
+                if(this.jetSound) this.jetSound.play();
+                this.lander.emit('begin-descent');
+
+                setTimeout(() => {
+                    this.status.innerText = "MISSION: DEPLOYING LANDER";
+                    this.lander.setAttribute('animation-mixer', { clip: '*', loop: 'once', clampWhenFinished: true });
+                    this.lander.setAttribute('pause-at-end', '');
+                }, 5000);
+            },
+            reset: function () {
+                if(this.jetSound) { this.jetSound.pause(); this.jetSound.currentTime = 0; }
+                this.lander.removeAttribute('animation-mixer');
+                this.lander.removeAttribute('pause-at-end');
+                this.lander.setAttribute('visible', 'false');
+                this.status.innerText = "INITIALIZING...";
+                this.runSequence();
+            }
+        });
+
+        function refreshMission() { document.querySelector('#target-item').components['mission-sequencer'].reset(); }
+        function openTicket() { window.open('https://docs.google.com/forms/d/e/1FAIpQLSfx05ovMYZfJITpH5O_taDuZ2XxUaeuE5cXfwjj-9Sev_KK2A/viewform?usp=publish-editor', '_blank'); }
+    </script>
+</head>
+
+<body>
+    <audio id="jetSound" src="https://cdn.pixabay.com/audio/2022/03/10/audio_5a85532a8a.mp3" preload="auto"></audio>
+
+    <div id="watermark">www.OURCADIUM.com</div>
+
+    <div id="ui-logo">
+        <img src="logo.png" alt="Youth Buzz Logo">
+    </div>
+
+    <div id="ui-top-right">
+        <div id="status-box">SCANNING FOR MOUSEPAD...</div>
+        <button class="btn-refresh" onclick="refreshMission()">RESTART</button>
+    </div>
+
+    <div id="ui-bottom">
+        <button class="btn-ticket" onclick="openTicket()">TICKET TO MOON</button>
+    </div>
+
+    <a-scene mindar-image="imageTargetSrc: targets.mind; maxTrack: 1;"
+             renderer="colorManagement: true, physicallyCorrectLights: true, exposure: 2.5, toneMapping: ACESFilmic;"
+             vr-mode-ui="enabled: false"
+             device-orientation-permission-ui="enabled: false">
+
+        <a-assets>
+            <a-asset-item id="lander-model" src="chandrayaan3_anim.glb"></a-asset-item>
+        </a-assets>
+
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+        <a-entity id="target-item" mindar-image-target="targetIndex: 0" mission-sequencer>
+            <a-light type="ambient" color="#FFFFFF" intensity="0.8"></a-light>
+            <a-light type="directional" color="#FFFFFF" intensity="2.0" position="10 500 1"></a-light>
+            <a-light type="hemisphere" color="#DAEFFF" groundColor="#222" intensity="2.0"></a-light>
+            <a-ellipse rotation="0 0 0" radius="0.4" color="#000" opacity="0.4" position="0 0 0.01"></a-ellipse>
+
+            <a-entity id="vikram"
+                      gltf-model="#lander-model"
+                      scale="0.1 0.1 0.1"
+                      position="0 10 0"
+                      rotation="90 0 0"
+                      visible="false"
+                      vikram-setup
+                      animation="property: position; to: -0.25 0 0.1; dur: 3000; easing: easeOutQuad; startEvents: begin-descent">
+            </a-entity>
+        </a-entity>
+    </a-scene>
+</body>
+</html>
