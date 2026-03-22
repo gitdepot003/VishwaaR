@@ -175,7 +175,7 @@
         <button class="btn-ticket" onclick="openTicket()">TICKET TO MOON</button>
     </div>
 
-    <a-scene mindar-image="imageTargetSrc: targets.mind; maxTrack: 1;"
+    <a-scene mindar-image="imageTargetSrc: targets.mind; maxTrack: 1; filterMinCF:0.0001; filterBeta: 0.001; missTolerance: 1;"
              renderer="colorManagement: true, physicallyCorrectLights: true, exposure: 2.5, toneMapping: ACESFilmic;"
              vr-mode-ui="enabled: false"
              device-orientation-permission-ui="enabled: false">
@@ -194,7 +194,7 @@
 
             <a-entity id="vikram"
                       gltf-model="#lander-model"
-                      scale="0.1 0.1 0.1"
+                      scale="0.075 0.070 0.075"
                       position="0 10 0"
                       rotation="90 0 0"
                       visible="false"
